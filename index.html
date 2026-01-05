@@ -3,6 +3,245 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>더베스트 어학원 - 예약 관리자</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <style>
+        /* 로그인 화면 스타일 */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .login-logo {
+            font-size: 3rem;
+            color: #3498db;
+            margin-bottom: 20px;
+        }
+        
+        .login-title {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 1.8rem;
+        }
+        
+        .login-form .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .login-form label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        .login-form input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .login-form input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .login-btn:hover {
+            background: #2980b9;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .demo-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .demo-info strong {
+            color: #2c3e50;
+        }
+        
+        /* 기존 스타일들... */
+    </style>
+</head>
+<body>
+    <!-- 로그인 화면 -->
+    <div id="loginScreen" class="login-overlay">
+        <div class="login-container">
+            <div class="login-logo">
+                <i class="fas fa-lock"></i>
+            </div>
+            <h2 class="login-title">관리자 로그인</h2>
+            <form id="adminLoginForm" class="login-form">
+                <div class="form-group">
+                    <label for="adminEmail">관리자 이메일</label>
+                    <input type="email" id="adminEmail" placeholder="admin@thebest.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="adminPassword">비밀번호</label>
+                    <input type="password" id="adminPassword" placeholder="비밀번호 입력" required>
+                </div>
+                <div class="error-message" id="loginError">
+                    이메일 또는 비밀번호가 올바르지 않습니다.
+                </div>
+                <button type="submit" class="login-btn">로그인</button>
+            </form>
+            <div class="demo-info">
+                <p><strong>데모 계정</strong></p>
+                <p>이메일: admin@thebest.com</p>
+                <p>비밀번호: admin123</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 기존 관리자 페이지 내용 (처음에는 숨김) -->
+    <div id="adminContent" style="display: none;">
+        <!-- 여기에 기존의 전체 관리자 페이지 내용이 들어갑니다 -->
+        <div class="admin-container">
+            <!-- 사이드바, 메인 콘텐츠 등 모든 내용 -->
+        </div>
+    </div>
+
+    <script>
+        // 로그인 상태 확인
+        function checkLoginStatus() {
+            const isLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
+            const loginTime = sessionStorage.getItem('adminLoginTime');
+            const currentTime = new Date().getTime();
+            const sessionDuration = 2 * 60 * 60 * 1000; // 2시간
+            
+            if (isLoggedIn && loginTime) {
+                const timeDiff = currentTime - parseInt(loginTime);
+                if (timeDiff < sessionDuration) {
+                    // 로그인 상태 유효
+                    return true;
+                } else {
+                    // 세션 만료
+                    sessionStorage.removeItem('adminLoggedIn');
+                    sessionStorage.removeItem('adminLoginTime');
+                }
+            }
+            return false;
+        }
+        
+        // 로그인 처리
+        document.getElementById('adminLoginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            
+            // 실제 운영시에는 서버 인증을 구현해야 합니다
+            if ((email === 'admin@thebest.com' && password === 'admin123') ||
+                (email === 'admin@yonsei.ac.kr' && password === '1234')) {
+                
+                // 로그인 성공
+                sessionStorage.setItem('adminLoggedIn', 'true');
+                sessionStorage.setItem('adminLoginTime', new Date().getTime().toString());
+                
+                // 로그인 화면 숨기고 관리자 페이지 표시
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('adminContent').style.display = 'block';
+                
+                // 로그인 성공 메시지 (옵션)
+                console.log('관리자 로그인 성공');
+            } else {
+                // 로그인 실패
+                document.getElementById('loginError').style.display = 'block';
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('adminPassword').focus();
+            }
+        });
+        
+        // 페이지 로드 시 로그인 상태 확인
+        document.addEventListener('DOMContentLoaded', function() {
+            if (checkLoginStatus()) {
+                // 이미 로그인된 경우
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('adminContent').style.display = 'block';
+            } else {
+                // 로그인되지 않은 경우
+                document.getElementById('loginScreen').style.display = 'flex';
+                
+                // 개발용: 로그인 정보 표시
+                console.log('로그인 정보: admin@thebest.com / admin123');
+            }
+        });
+        
+        // URL 파라미터로 로그인 처리 (더베스트 어학원 페이지에서 전달)
+        function checkUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const loggedIn = urlParams.get('loggedIn');
+            const token = urlParams.get('token');
+            
+            if (loggedIn === 'true' && token) {
+                // 더베스트 어학원 페이지에서 로그인된 상태로 넘어온 경우
+                sessionStorage.setItem('adminLoggedIn', 'true');
+                sessionStorage.setItem('adminLoginTime', new Date().getTime().toString());
+                sessionStorage.setItem('adminToken', token);
+                
+                // 로그인 화면 숨기고 관리자 페이지 표시
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('adminContent').style.display = 'block';
+                
+                // URL에서 파라미터 제거 (선택사항)
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+        
+        // URL 파라미터 확인
+        checkUrlParams();
+    </script>
+</body>
+</html>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>더베스트 어학원 - 관리자 페이지</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
