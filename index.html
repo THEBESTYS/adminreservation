@@ -788,30 +788,46 @@
         </div>
     </div>
 
-    <!-- Firebase 및 라이브러리 -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <!-- Firebase SDK (모듈 방식) -->
+    <script type="module">
+        // Firebase SDKs 모듈 방식으로 import
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+        // Firebase 구성
+        const firebaseConfig = {
+            apiKey: "AIzaSyD4gK47WmW78znj1jXDzwMSCH6jAN_LVN8",
+            authDomain: "reservation-33a24.firebaseapp.com",
+            projectId: "reservation-33a24",
+            storageBucket: "reservation-33a24.firebasestorage.app",
+            messagingSenderId: "965824309420",
+            appId: "1:965824309420:web:060c37983c1d1c38d59709"
+        };
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // 전역 변수로 export
+        window.firebaseApp = app;
+        window.firebaseDb = db;
+        window.firebaseAuth = auth;
+        window.firebaseModules = {
+            collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit,
+            signInWithEmailAndPassword, signOut, onAuthStateChanged
+        };
+        
+        console.log('Firebase 초기화 완료');
+    </script>
+
+    <!-- 다른 라이브러리 -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     
     <script>
-        // Firebase 구성
-        const firebaseConfig = {
-            apiKey: "AIzaSyBFAY9Q6VlLX2bvSdyj3oXgX0NKUTN3UJg",
-            authDomain: "bestacademy-fba5d.firebaseapp.com",
-            projectId: "bestacademy-fba5d",
-            storageBucket: "bestacademy-fba5d.firebasestorage.app",
-            messagingSenderId: "1061122884204",
-            appId: "1:1061122884204:web:88aa59942d9ee8a6a2c35d"
-        };
-
-        // Firebase 초기화
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-
         // 전역 변수
         let allReservations = [];
         let currentReservationId = null;
@@ -836,49 +852,89 @@
             return false;
         }
 
-        // Firebase 로그인 처리
+        // 로그인 처리
         document.getElementById('adminLoginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const email = document.getElementById('adminEmail').value;
             const password = document.getElementById('adminPassword').value;
             
+            console.log('로그인 시도:', email);
+            
             try {
-                // Firebase 인증
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                // Firebase 로그인
+                const { signInWithEmailAndPassword } = window.firebaseModules;
+                const userCredential = await signInWithEmailAndPassword(window.firebaseAuth, email, password);
                 const user = userCredential.user;
                 
-                // 관리자 권한 확인 (간단한 방식 - 실제로는 Firestore에서 관리자 권한 체크 필요)
-                if (email.includes('admin') || email.includes('thebest')) {
-                    // 로그인 성공
-                    sessionStorage.setItem('adminLoggedIn', 'true');
-                    sessionStorage.setItem('adminLoginTime', new Date().getTime().toString());
-                    sessionStorage.setItem('adminEmail', email);
-                    
-                    // 로그인 화면 숨기고 관리자 페이지 표시
-                    document.getElementById('loginScreen').style.display = 'none';
-                    document.getElementById('adminContent').style.display = 'block';
-                    
-                    // 관리자 정보 표시
-                    document.getElementById('adminEmailDisplay').textContent = email;
-                    
-                    toastr.success('로그인 성공!');
-                    loadDashboardData();
-                } else {
-                    toastr.error('관리자 권한이 없습니다.');
-                    await auth.signOut();
-                }
+                console.log('로그인 성공:', user.email);
+                
+                // 로그인 성공 처리
+                sessionStorage.setItem('adminLoggedIn', 'true');
+                sessionStorage.setItem('adminLoginTime', new Date().getTime().toString());
+                sessionStorage.setItem('adminEmail', email);
+                sessionStorage.setItem('adminUID', user.uid);
+                
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('adminContent').style.display = 'block';
+                document.getElementById('adminEmailDisplay').textContent = email;
+                
+                toastr.success('로그인 성공!');
+                loadDashboardData();
+                
             } catch (error) {
                 console.error('로그인 에러:', error);
+                console.error('에러 코드:', error.code);
+                console.error('에러 메시지:', error.message);
+                
+                // 에러 코드별 처리
+                switch(error.code) {
+                    case 'auth/user-not-found':
+                        toastr.error('등록되지 않은 이메일입니다.');
+                        break;
+                    case 'auth/wrong-password':
+                        toastr.error('비밀번호가 틀렸습니다.');
+                        break;
+                    case 'auth/invalid-email':
+                        toastr.error('잘못된 이메일 형식입니다.');
+                        break;
+                    case 'auth/user-disabled':
+                        toastr.error('사용이 중지된 계정입니다.');
+                        break;
+                    case 'auth/too-many-requests':
+                        toastr.error('너무 많은 시도로 인해 차단되었습니다. 잠시 후 시도해주세요.');
+                        break;
+                    case 'auth/network-request-failed':
+                        toastr.error('네트워크 연결에 실패했습니다. 인터넷 연결을 확인해주세요.');
+                        break;
+                    case 'auth/invalid-api-key':
+                        toastr.error('Firebase API 키가 유효하지 않습니다. 구성 설정을 확인해주세요.');
+                        break;
+                    default:
+                        toastr.error('로그인 실패: ' + error.message);
+                }
+                
                 document.getElementById('loginError').style.display = 'block';
                 document.getElementById('adminPassword').value = '';
                 document.getElementById('adminPassword').focus();
-                toastr.error('로그인 실패: ' + error.message);
             }
         });
 
         // 페이지 로드 시 로그인 상태 확인
         document.addEventListener('DOMContentLoaded', function() {
+            // Firebase 인증 상태 확인
+            const { onAuthStateChanged } = window.firebaseModules;
+            onAuthStateChanged(window.firebaseAuth, (user) => {
+                if (user) {
+                    console.log('Firebase 인증 상태: 로그인됨', user.email);
+                    sessionStorage.setItem('adminLoggedIn', 'true');
+                    sessionStorage.setItem('adminLoginTime', new Date().getTime().toString());
+                    sessionStorage.setItem('adminEmail', user.email);
+                } else {
+                    console.log('Firebase 인증 상태: 로그인되지 않음');
+                }
+            });
+            
             if (checkLoginStatus()) {
                 const email = sessionStorage.getItem('adminEmail') || 'admin@bestacademy.com';
                 document.getElementById('adminEmail').value = email;
@@ -938,16 +994,25 @@
                 document.getElementById('recent-loading').style.display = 'flex';
                 document.getElementById('recent-reservations').style.display = 'none';
                 
+                console.log('Firestore 접근 시도...');
+                
                 // Firestore에서 예약 데이터 가져오기
-                const snapshot = await db.collection('reservations')
-                    .orderBy('createdAt', 'desc')
-                    .limit(10)
-                    .get();
+                const { collection, getDocs, query, orderBy, limit } = window.firebaseModules;
+                const q = query(
+                    collection(window.firebaseDb, 'reservations'),
+                    orderBy('createdAt', 'desc'),
+                    limit(10)
+                );
+                
+                const snapshot = await getDocs(q);
+                console.log('Firestore 응답:', snapshot.size, '개 문서');
                 
                 allReservations = [];
                 snapshot.forEach(doc => {
                     allReservations.push({ id: doc.id, ...doc.data() });
                 });
+                
+                console.log('불러온 예약 수:', allReservations.length);
                 
                 // 통계 계산
                 updateDashboardStats();
@@ -957,9 +1022,34 @@
                 
                 document.getElementById('recent-loading').style.display = 'none';
                 document.getElementById('recent-reservations').style.display = 'table';
+                
+                toastr.success('데이터 불러오기 성공!');
+                
             } catch (error) {
-                console.error('대시보드 데이터 로드 오류:', error);
-                toastr.error('데이터를 불러오는데 실패했습니다.');
+                console.error('Firestore 접근 오류:', error);
+                document.getElementById('recent-loading').style.display = 'none';
+                
+                if (error.code === 'permission-denied') {
+                    toastr.error(
+                        'Firestore 접근 권한이 없습니다.' +
+                        '\nFirebase 콘솔에서 Firestore 규칙을 확인해주세요.'
+                    );
+                    
+                    // 권한 없음 안내 메시지 표시
+                    document.querySelector('#recent-reservations').parentElement.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #e74c3c;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 20px;"></i>
+                            <h3>Firestore 접근 권한 오류</h3>
+                            <p>Firebase 콘솔에서 Firestore 규칙을 수정해야 합니다.</p>
+                            <button onclick="window.open('https://console.firebase.google.com/project/reservation-33a24/firestore/rules', '_blank')" 
+                                    class="btn btn-primary" style="margin-top: 20px;">
+                                <i class="fas fa-external-link-alt"></i> Firebase 콘솔 열기
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    toastr.error('데이터를 불러오는데 실패했습니다: ' + error.message);
+                }
             }
         }
 
@@ -1033,9 +1123,13 @@
                 document.getElementById('reservations-loading').style.display = 'flex';
                 document.getElementById('reservations-table').style.display = 'none';
                 
-                const snapshot = await db.collection('reservations')
-                    .orderBy('createdAt', 'desc')
-                    .get();
+                const { collection, getDocs, query, orderBy } = window.firebaseModules;
+                const q = query(
+                    collection(window.firebaseDb, 'reservations'),
+                    orderBy('createdAt', 'desc')
+                );
+                
+                const snapshot = await getDocs(q);
                 
                 allReservations = [];
                 snapshot.forEach(doc => {
@@ -1048,7 +1142,7 @@
                 document.getElementById('reservations-table').style.display = 'table';
             } catch (error) {
                 console.error('예약 데이터 로드 오류:', error);
-                toastr.error('예약 데이터를 불러오는데 실패했습니다.');
+                toastr.error('예약 데이터를 불러오는데 실패했습니다: ' + error.message);
             }
         }
 
@@ -1134,14 +1228,16 @@
         // 예약 상세 보기
         async function viewReservation(reservationId) {
             try {
-                const doc = await db.collection('reservations').doc(reservationId).get();
+                const { doc, getDoc } = window.firebaseModules;
+                const docRef = doc(window.firebaseDb, 'reservations', reservationId);
+                const docSnap = await getDoc(docRef);
                 
-                if (!doc.exists) {
+                if (!docSnap.exists()) {
                     toastr.error('예약을 찾을 수 없습니다.');
                     return;
                 }
                 
-                const reservation = { id: doc.id, ...doc.data() };
+                const reservation = { id: docSnap.id, ...docSnap.data() };
                 currentReservationId = reservationId;
                 
                 const typeNames = {
@@ -1220,9 +1316,12 @@
             }
             
             try {
-                await db.collection('reservations').doc(currentReservationId).update({
+                const { doc, updateDoc, serverTimestamp } = window.firebaseModules;
+                const docRef = doc(window.firebaseDb, 'reservations', currentReservationId);
+                
+                await updateDoc(docRef, {
                     status: newStatus,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    updatedAt: serverTimestamp()
                 });
                 
                 toastr.success('예약 상태가 변경되었습니다.');
@@ -1235,7 +1334,7 @@
                 }
             } catch (error) {
                 console.error('상태 변경 오류:', error);
-                toastr.error('상태 변경에 실패했습니다.');
+                toastr.error('상태 변경에 실패했습니다: ' + error.message);
             }
         }
 
@@ -1246,7 +1345,10 @@
             }
             
             try {
-                await db.collection('reservations').doc(reservationId).delete();
+                const { doc, deleteDoc } = window.firebaseModules;
+                const docRef = doc(window.firebaseDb, 'reservations', reservationId);
+                await deleteDoc(docRef);
+                
                 toastr.success('예약이 삭제되었습니다.');
                 
                 // 데이터 새로고침
@@ -1256,14 +1358,15 @@
                 }
             } catch (error) {
                 console.error('예약 삭제 오류:', error);
-                toastr.error('예약 삭제에 실패했습니다.');
+                toastr.error('예약 삭제에 실패했습니다: ' + error.message);
             }
         }
 
         // 데이터 내보내기
         async function exportData() {
             try {
-                const snapshot = await db.collection('reservations').get();
+                const { collection, getDocs } = window.firebaseModules;
+                const snapshot = await getDocs(collection(window.firebaseDb, 'reservations'));
                 const reservations = [];
                 snapshot.forEach(doc => {
                     reservations.push({ id: doc.id, ...doc.data() });
@@ -1299,14 +1402,15 @@
                 toastr.success('데이터가 내보내기 되었습니다.');
             } catch (error) {
                 console.error('데이터 내보내기 오류:', error);
-                toastr.error('데이터 내보내기에 실패했습니다.');
+                toastr.error('데이터 내보내기에 실패했습니다: ' + error.message);
             }
         }
 
         // 로그아웃
         async function logout() {
             try {
-                await auth.signOut();
+                const { signOut } = window.firebaseModules;
+                await signOut(window.firebaseAuth);
                 sessionStorage.clear();
                 window.location.reload();
             } catch (error) {
